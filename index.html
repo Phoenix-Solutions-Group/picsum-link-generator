@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Picsum Link Generator</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.11.3/js/lightbox-plus-jquery.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.11.3/css/lightbox.min.css">
+  </head>
+  <body class="p-6 bg-gray-100">
+    <div id="app" class="flex h-screen">
+      <!-- Sidebar -->
+      <div class="w-1/4 bg-white p-6 shadow-lg rounded-lg overflow-y-auto">
+        <h1 class="text-2xl font-bold mb-4">Picsum Link Generator</h1>
+        <div class="mb-2">
+          <label class="block font-medium">Width:</label>
+          <input v-model.number="width" type="number" class="w-full p-2 border rounded">
+        </div>
+        <div class="mb-2">
+          <label class="block font-medium">Height:</label>
+          <input v-model.number="height" type="number" class="w-full p-2 border rounded">
+        </div>
+        <div class="mb-2">
+          <label class="block font-medium">Number of Links:</label>
+          <input v-model.number="count" @input="appendLinks(); saveSettings()" type="number" class="w-full p-2 border rounded">
+        </div>
+        <div class="mb-2">
+          <label class="block font-medium">Seed (optional, leave empty for random):</label>
+          <input v-model="seed" type="text" class="w-full p-2 border rounded">
+        </div>
+        <div class="mb-2">
+          <label class="block font-medium">Blur (0-10):</label>
+          <select v-model.number="blur" @change="updateBlurAndGrayscale(); saveSettings()" class="w-full p-2 border rounded">
+            <option v-for="n in 11" :value="n-1">{{ n-1 }}</option>
+          </select>
+        </div>
+        <div class="mb-2 flex items-center">
+          <input v-model="grayscale" @change="updateBlurAndGrayscale(); saveSettings()" type="checkbox" class="mr-2">
+          <label class="font-medium">Grayscale</label>
+        </div>
+        <button @click="generateLinks" class="bg-blue-500 text-white px-4 py-2 rounded mt-2 w-full">Generate</button>
+      </div>
+      <!-- Content Area -->
+      <div class="w-3/4 p-6 overflow-y-auto">
+        <div v-if="links.length" class="grid grid-cols-4 gap-4">
+          <div v-for="(link, index) in links" :key="link" class="bg-white p-4 shadow rounded flex flex-col items-center">
+            <div class="relative w-full" :style="{ paddingTop: (storedHeight / storedWidth * 100) + '%' }">
+              <a :href="link" data-lightbox="image-{{ index }}">
+                <img :src="link" alt="Preview" class="absolute top-0 left-0 w-full h-full object-cover rounded">
+              </a>
+            </div>
+            <div class="mt-2 w-full text-center">
+              <button @click="downloadImage(link, index)" class="bg-green-500 text-white px-3 py-1 rounded text-sm">Download</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+      const {
+        createApp
+      } = Vue;
+      createApp({
+        mounted() {
+          this.generateLinks();
+        },
+        data() {
+          return {
+            storedWidth: localStorage.getItem('width') || 200,
+            storedHeight: localStorage.getItem('height') || 200,
+            width: localStorage.getItem('width') || 200,
+            height: localStorage.getItem('height') || 200,
+            count: localStorage.getItem('count') || 10,
+            seed: localStorage.getItem('seed') || '',
+            blur: Number(localStorage.getItem('blur')) || 0,
+            grayscale: JSON.parse(localStorage.getItem('grayscale')) || false,
+            links: []
+          };
+        },
+        methods: {
+          downloadImage(link, index) {
+            fetch(link).then(response => response.blob()).then(blob => {
+              const a = document.createElement('a');
+              a.href = URL.createObjectURL(blob);
+              a.download = `img${index + 1}_${this.width}x${this.height}.jpg`;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+            }).catch(error => console.error('Download failed:', error));
+          },
+          appendLinks() {
+            while (this.links.length < this.count) {
+              let seedValue = Math.random().toString(36).substring(2, 10);
+              let url = `https://picsum.photos/seed/${seedValue}/${this.width}/${this.height}`;
+              if (this.grayscale || this.blur) {
+                url += '?';
+                if (this.grayscale) url += 'grayscale&';
+                if (this.blur > 0) url += `blur=${this.blur}&`;
+                url = url.slice(0, -1);
+              }
+              this.links.push(url);
+            }
+            this.links = this.links.slice(0, this.count);
+          },
+          updateBlurAndGrayscale() {
+            this.links = this.links.map(link => {
+              let seedMatch = link.match(/seed\/([^\/]+)/);
+              let seedValue = seedMatch ? seedMatch[1] : Math.random().toString(36).substring(2, 10);
+              let url = `https://picsum.photos/seed/${seedValue}/${this.width}/${this.height}`;
+              if (this.grayscale || this.blur) {
+                url += '?';
+                if (this.grayscale) url += 'grayscale&';
+                if (this.blur > 0) url += `blur=${this.blur}&`;
+                url = url.slice(0, -1);
+              }
+              return url;
+            });
+          },
+          saveSettings() {
+            localStorage.setItem('width', this.width);
+            localStorage.setItem('height', this.height);
+            localStorage.setItem('count', this.count);
+            localStorage.setItem('seed', this.seed);
+            localStorage.setItem('blur', this.blur);
+            localStorage.setItem('grayscale', JSON.stringify(this.grayscale));
+          },
+          generateLinks() {
+            this.storedWidth = this.width;
+            this.storedHeight = this.height;
+            localStorage.setItem('width', this.width);
+            localStorage.setItem('height', this.height);
+            localStorage.setItem('count', this.count);
+            localStorage.setItem('seed', this.seed);
+            localStorage.setItem('blur', this.blur);
+            localStorage.setItem('grayscale', JSON.stringify(this.grayscale));
+            this.links = [];
+            for (let i = 0; i < this.count; i++) {
+              let seedValue = Math.random().toString(36).substring(2, 10);
+              let url = `https://picsum.photos/seed/${seedValue}/${this.width}/${this.height}`;
+              if (this.grayscale || this.blur) {
+                url += '?';
+                if (this.grayscale) url += 'grayscale&';
+                if (this.blur > 0) url += `blur=${this.blur}&`;
+                url = url.slice(0, -1);
+              }
+              this.links.push(url);
+            }
+          }
+        }
+      }).mount('#app');
+    </script>
+  </body>
+</html>
