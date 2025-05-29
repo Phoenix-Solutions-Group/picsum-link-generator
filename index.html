@@ -92,7 +92,8 @@
           },
           appendLinks() {
             while (this.links.length < this.count) {
-              let seedValue = Math.random().toString(36).substring(2, 10);
+              const idx = this.links.length + 1;
+              let seedValue = this.seed ? `${this.seed}${idx}` : Math.random().toString(36).substring(2, 10);
               let url = `https://picsum.photos/seed/${seedValue}/${this.width}/${this.height}`;
               if (this.grayscale || this.blur) {
                 url += '?';
@@ -136,8 +137,9 @@
             localStorage.setItem('blur', this.blur);
             localStorage.setItem('grayscale', JSON.stringify(this.grayscale));
             this.links = [];
+            const baseSeed = this.seed;
             for (let i = 0; i < this.count; i++) {
-              let seedValue = Math.random().toString(36).substring(2, 10);
+              let seedValue = baseSeed ? `${baseSeed}${i + 1}` : Math.random().toString(36).substring(2, 10);
               let url = `https://picsum.photos/seed/${seedValue}/${this.width}/${this.height}`;
               if (this.grayscale || this.blur) {
                 url += '?';
